@@ -2,793 +2,134 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Amm Gesture AI - Dual Hand</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
-
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blok Warna Jari Tangan</title>
     <style>
-        :root {
-            --glass-bg: rgba(20, 20, 20, 0.4);
-            --glass-border: rgba(255, 255, 255, 0.15);
-            --text-color: #f0f0f0;
-            --accent-glow: 0 0 15px rgba(255, 255, 255, 0.5);
-            --accent-glow-active: 0 0 30px rgba(0, 255, 200, 0.8);
-            --silver: #C0C0C0;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-            user-select: none;
-        }
-
-        body, html {
-            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
             height: 100vh;
-            overflow: hidden;
-            background-color: #000;
-            color: var(--text-color);
         }
-
-        /* Camera Background */
-        #webcam {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-            z-index: 1;
-            transition: var(--transition);
-        }
-
-        #output_canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Visual Effects Overlay */
-        .scanline {
-            position: absolute;
-            width: 100%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: var(--accent-glow);
-            z-index: 3;
-            animation: scan 4s linear infinite;
-            pointer-events: none;
-            opacity: 0.5;
-        }
-
-        .screen-border {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border: 2px solid transparent;
-            z-index: 4;
-            pointer-events: none;
-            transition: border-color 0.3s, box-shadow 0.3s;
-        }
-
-        .screen-border.active-glow {
-            border-color: rgba(0, 255, 200, 0.4);
-            box-shadow: inset 0 0 50px rgba(0, 255, 200, 0.2);
-        }
-
-        /* Glassmorphism Classes */
-        .glass {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-        }
-
-        /* Top Navigation */
-        .top-nav {
-            position: absolute;
-            top: 0;
-            width: 100%;
-            height: 70px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 30px;
-            z-index: 10;
-        }
-
-        .logo {
-            font-size: 1.2rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #fff;
-            text-transform: uppercase;
-        }
-
-        .logo span {
-            color: var(--silver);
-            animation: pulse 2s infinite;
-        }
-
-        .top-icons {
-            display: flex;
-            gap: 20px;
-        }
-
-        .icon-btn {
-            background: transparent;
-            border: none;
-            color: var(--silver);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            transition: var(--transition);
-        }
-
-        .icon-btn:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: var(--accent-glow);
-        }
-
-        .icon-btn.active {
-            color: #fff;
-            box-shadow: var(--accent-glow-active);
-        }
-
-        /* Gesture Status Card */
-        .status-card {
-            position: absolute;
-            bottom: 120px;
-            left: 50%;
-            transform: translateX(-50%) scale(0.95);
-            width: 320px;
-            padding: 20px;
-            border-radius: 20px;
-            z-index: 10;
-            transition: var(--transition);
-            opacity: 0.9;
-        }
-
-        .status-card.pop {
-            transform: translateX(-50%) scale(1.05);
-            box-shadow: var(--accent-glow-active);
-            border-color: rgba(0,255,200,0.5);
-        }
-
-        .status-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-            font-size: 0.9rem;
-            letter-spacing: 0.5px;
-        }
-
-        .status-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .status-label {
-            color: var(--silver);
-        }
-
-        .status-value {
-            font-weight: 600;
-            color: #fff;
-        }
-        
-        .cooldown-bar {
-            width: 100%;
-            height: 3px;
-            background: rgba(255,255,255,0.1);
-            margin-top: 15px;
-            border-radius: 2px;
-            overflow: hidden;
-            display: none;
-        }
-
-        .cooldown-progress {
-            width: 100%;
-            height: 100%;
-            background: #00ffc8;
-            box-shadow: var(--accent-glow-active);
-        }
-
-        /* Bottom Control Panel */
-        .bottom-panel {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            padding: 10px 20px;
-            border-radius: 30px;
-            z-index: 10;
-        }
-
-        .ctrl-btn {
-            background: transparent;
-            border: 1px solid var(--glass-border);
-            color: var(--silver);
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: var(--transition);
-        }
-
-        .ctrl-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        /* Settings Modal */
-        .settings-modal {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.9);
-            width: 350px;
-            padding: 25px;
-            border-radius: 20px;
-            z-index: 20;
-            opacity: 0;
-            pointer-events: none;
-            transition: var(--transition);
-        }
-
-        .settings-modal.show {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translate(-50%, -50%) scale(1);
-        }
-
-        .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-
-        .settings-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-        }
-
-        /* Toggle Switch */
-        .switch {
+        .container {
             position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 24px;
+            width: 640px;
+            height: 480px;
+            border: 4px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,255,0,0.5);
         }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
+        /* Video aslinya disembunyikan, kita tampilkan hasil gambarnya di canvas */
+        .input_video {
+            display: none; 
+        }
+        .output_canvas {
             position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(255,255,255,0.2);
-            transition: .4s;
-            border-radius: 24px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); /* Efek cermin (mirror) agar gerakan lebih natural */
         }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px; width: 18px;
-            left: 3px; bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider { background-color: #00ffc8; }
-        input:checked + .slider:before {
-            transform: translateX(20px);
-            background-color: #000;
-        }
-
-        /* Animations */
-        @keyframes scan {
-            0% { top: -10%; opacity: 0; }
-            10% { opacity: 0.5; }
-            90% { opacity: 0.5; }
-            100% { top: 110%; opacity: 0; }
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
-        }
-
-        .ripple {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(0, 255, 200, 0.4);
-            transform: scale(0);
-            animation: ripple-anim 0.6s linear;
-            pointer-events: none;
-        }
-
-        @keyframes ripple-anim {
-            to { transform: scale(4); opacity: 0; }
+        p {
+            margin-top: 20px;
+            text-align: center;
         }
     </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-    <video id="webcam" autoplay playsinline></video>
-    <canvas id="output_canvas"></canvas>
-    
-    <div class="scanline" id="scanlineEffect"></div>
-    <div class="screen-border" id="screenBorder"></div>
-
-    <nav class="top-nav glass">
-        <div class="logo">
-            <span class="material-symbols-outlined">lens</span>
-            Amm Gesture AI
-        </div> 
-        <div class="top-icons">
-            <button class="icon-btn" id="btnCamStatus"><span class="material-symbols-outlined">videocam</span></button>
-            <button class="icon-btn" id="btnMicStatus"><span class="material-symbols-outlined">mic</span></button>
-            <button class="icon-btn" id="btnAiStatus"><span class="material-symbols-outlined">memory</span></button>
-            <button class="icon-btn" id="btnSettings" onclick="toggleSettings()"><span class="material-symbols-outlined">settings</span></button>
-            <button class="icon-btn" onclick="toggleFullscreen()"><span class="material-symbols-outlined">fullscreen</span></button>
-        </div>
-    </nav>
-
-    <div class="status-card glass" id="statusCard">
-        <div class="status-item">
-            <span class="status-label">Camera</span>
-            <span class="status-value" id="valCamera">Initializing...</span>
-        </div>
-        <div class="status-item">
-            <span class="status-label">AI Engine</span>
-            <span class="status-value" id="valAi">Loading Model...</span>
-        </div>
-        <div class="status-item">
-            <span class="status-label">Gesture</span>
-            <span class="status-value" id="valGesture">None</span>
-        </div>
-        <div class="status-item">
-            <span class="status-label">Confidence</span>
-            <span class="status-value" id="valConfidence">0%</span>
-        </div>
-        <div class="status-item">
-            <span class="status-label">Voice</span>
-            <span class="status-value" id="valVoice">Standby</span>
-        </div>
-        <div class="cooldown-bar" id="cooldownBar">
-            <div class="cooldown-progress" id="cooldownProgress"></div>
-        </div>
+    <h2>Detektor 4 Jari (Jempol & Telunjuk)</h2>
+    <div class="container">
+        <video class="input_video" autoplay playsinline></video>
+        <canvas class="output_canvas" width="640" height="480"></canvas>
     </div>
-
-    <div class="bottom-panel glass">
-        <button class="ctrl-btn" onclick="startDetection()" title="Start"><span class="material-symbols-outlined">play_arrow</span></button>
-        <button class="ctrl-btn" onclick="stopDetection()" title="Stop"><span class="material-symbols-outlined">stop</span></button>
-        <button class="ctrl-btn" onclick="switchCamera()" title="Switch Camera"><span class="material-symbols-outlined">cameraswitch</span></button>
-        <button class="ctrl-btn" id="btnToggleVoice" onclick="toggleVoice()" title="Toggle Voice"><span class="material-symbols-outlined">volume_up</span></button>
-        <button class="ctrl-btn" onclick="resetApp()" title="Reset"><span class="material-symbols-outlined">refresh</span></button>
-    </div>
-
-    <div class="settings-modal glass" id="settingsModal">
-        <div class="settings-header">
-            <span>Settings</span>
-            <span class="material-symbols-outlined" style="cursor:pointer;" onclick="toggleSettings()">close</span>
-        </div>
-        <div class="settings-row">
-            <span>Voice Enabled</span>
-            <label class="switch"><input type="checkbox" id="setVoice" checked><span class="slider"></span></label>
-        </div>
-        <div class="settings-row">
-            <span>Scanline Animation</span>
-            <label class="switch"><input type="checkbox" id="setAnim" checked onchange="toggleAnim()"><span class="slider"></span></label>
-        </div>
-        <div class="settings-row">
-            <span>Draw Skeleton</span>
-            <label class="switch"><input type="checkbox" id="setSkeleton"><span class="slider"></span></label>
-        </div>
-    </div>
+    <p>Arahkan <strong>kedua tangan Anda</strong> ke kamera. <br>Bentuk blok warna akan mengikuti ujung jempol dan telunjuk dari kedua tangan.</p>
 
     <script>
-        const videoElement = document.getElementById('webcam');
-        const canvasElement = document.getElementById('output_canvas');
+        const videoElement = document.querySelector('.input_video');
+        const canvasElement = document.querySelector('.output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
-        const statusCard = document.getElementById('statusCard');
-        const screenBorder = document.getElementById('screenBorder');
-        
-        const valCamera = document.getElementById('valCamera');
-        const valAi = document.getElementById('valAi');
-        const valGesture = document.getElementById('valGesture');
-        const valConfidence = document.getElementById('valConfidence');
-        const valVoice = document.getElementById('valVoice');
-        const cooldownBar = document.getElementById('cooldownBar');
-        const cooldownProgress = document.getElementById('cooldownProgress');
-        const micIcon = document.getElementById('btnMicStatus');
 
-        let isDetecting = false;
-        let isVoiceEnabled = true;
-        let drawSkeleton = false;
-        let holdTimer = null;
-        let currentGesture = "None";
-        let isCooldown = false;
-        let camera;
-        let facingMode = "user";
+        // Fungsi ini dipanggil setiap kali MediaPipe selesai mendeteksi frame
+        function onResults(results) {
+            canvasCtx.save();
+            // Bersihkan kanvas
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            // Gambar tangkapan video ke kanvas
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-        const synth = window.speechSynthesis;
-        let indonesianVoice = null;
+            // Jika terdeteksi minimal 2 tangan
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length >= 2) {
+                
+                const hand1 = results.multiHandLandmarks[0];
+                const hand2 = results.multiHandLandmarks[1];
 
-        function loadVoices() {
-            const voices = synth.getVoices();
-            indonesianVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id') || voices[0];
-            if (!indonesianVoice) valVoice.innerText = "TTS Not Supported";
+                // Titik landmark MediaPipe: 
+                // 4 = Ujung Jempol (Thumb tip)
+                // 8 = Ujung Telunjuk (Index finger tip)
+
+                // Ambil koordinat x dan y (dikalikan dengan lebar & tinggi kanvas)
+                const p1 = { x: hand1[4].x * canvasElement.width, y: hand1[4].y * canvasElement.height }; // Jempol Tangan 1
+                const p2 = { x: hand1[8].x * canvasElement.width, y: hand1[8].y * canvasElement.height }; // Telunjuk Tangan 1
+                const p3 = { x: hand2[8].x * canvasElement.width, y: hand2[8].y * canvasElement.height }; // Telunjuk Tangan 2
+                const p4 = { x: hand2[4].x * canvasElement.width, y: hand2[4].y * canvasElement.height }; // Jempol Tangan 2
+
+                // Mulai menggambar blok warna (Poligon 4 sisi)
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(p1.x, p1.y);
+                canvasCtx.lineTo(p2.x, p2.y);
+                canvasCtx.lineTo(p3.x, p3.y);
+                canvasCtx.lineTo(p4.x, p4.y);
+                canvasCtx.closePath();
+
+                // Beri warna blok (contoh: Hijau semi-transparan)
+                canvasCtx.fillStyle = 'rgba(0, 255, 128, 0.6)';
+                canvasCtx.fill();
+
+                // Beri garis tepi agar lebih terlihat
+                canvasCtx.lineWidth = 3;
+                canvasCtx.strokeStyle = '#00FF00';
+                canvasCtx.stroke();
+            }
+            
+            canvasCtx.restore();
         }
-        speechSynthesis.onvoiceschanged = loadVoices;
 
-        // BACA 2 TANGAN MAX
-        const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
+        // Inisialisasi MediaPipe Hands
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
 
         hands.setOptions({
-            maxNumHands: 2, // Diubah ke 2 tangan
-            modelComplexity: 1,
-            minDetectionConfidence: 0.8,
-            minTrackingConfidence: 0.8
+            maxNumHands: 2,           // Batasi hanya mencari 2 tangan
+            modelComplexity: 1,       // Keseimbangan antara kecepatan dan akurasi
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
         });
 
         hands.onResults(onResults);
 
-        // Helper Jarak
-        function getDistance(lm1, lm2) {
-            return Math.hypot(lm1.x - lm2.x, lm1.y - lm2.y);
-        }
-
-        // Gambar pola bidang 4 jari (Telunjuk - Telunjuk - Jempol - Jempol)
-        function drawFourFingerPolygon(ctx, hand1, hand2) {
-            // Titik Landmark 8 (Telunjuk) dan 4 (Jempol)
-            const pts = [
-                {x: hand1[8].x * canvasElement.width, y: hand1[8].y * canvasElement.height},
-                {x: hand2[8].x * canvasElement.width, y: hand2[8].y * canvasElement.height},
-                {x: hand2[4].x * canvasElement.width, y: hand2[4].y * canvasElement.height},
-                {x: hand1[4].x * canvasElement.width, y: hand1[4].y * canvasElement.height}
-            ];
-
-            // Garis Bentuk
-            ctx.beginPath();
-            ctx.moveTo(pts[0].x, pts[0].y);
-            for(let i = 1; i < pts.length; i++) {
-                ctx.lineTo(pts[i].x, pts[i].y);
-            }
-            ctx.closePath();
-
-            ctx.fillStyle = 'rgba(0, 255, 200, 0.15)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(0, 255, 200, 0.8)';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-
-            // Efek Titik Glow di Ujung Jari
-            pts.forEach(p => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
-                ctx.fillStyle = '#fff';
-                ctx.shadowColor = '#00ffc8';
-                ctx.shadowBlur = 15;
-                ctx.fill();
-            });
-            ctx.shadowBlur = 0; // Reset
-        }
-
-        // Logika 2 Tangan
-        function analyzeTwoHandGesture(h1, h2) {
-            const distT1T2 = getDistance(h1[4], h2[4]); // Jempol ke Jempol
-            const distI1I2 = getDistance(h1[8], h2[8]); // Telunjuk ke Telunjuk
-            
-            // Silang untuk Frame Kamera
-            const distT1I2 = getDistance(h1[4], h2[8]); // Jempol 1 ke Telunjuk 2
-            const distI1T2 = getDistance(h1[8], h2[4]); // Telunjuk 1 ke Jempol 2
-
-            const threshold = 0.08; // Jarak kedekatan untuk dianggap "bersentuhan"
-
-            if (distT1T2 < threshold && distI1I2 < threshold) {
-                return "Heart Shape";
-            }
-            if (distT1I2 < threshold && distI1T2 < threshold) {
-                return "Camera Frame";
-            }
-
-            return "Custom Shape";
-        }
-
-        // Logika 1 Tangan (Jarak Relatif - Kode Lama Dipertahankan)
-        function analyzeGesture(landmarks) {
-            const wrist = landmarks[0];
-            const isFingerOpen = (tip, mcp) => getDistance(landmarks[tip], wrist) > getDistance(landmarks[mcp], wrist);
-
-            const indexOpen = isFingerOpen(8, 5);
-            const middleOpen = isFingerOpen(12, 9);
-            const ringOpen = isFingerOpen(16, 13);
-            const pinkyOpen = isFingerOpen(20, 17);
-            const thumbOpen = getDistance(landmarks[4], landmarks[17]) > getDistance(landmarks[2], landmarks[17]);
-            const distThumbIndex = getDistance(landmarks[4], landmarks[8]);
-
-            const isFist = !thumbOpen && !indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
-            const isPalm = thumbOpen && indexOpen && middleOpen && ringOpen && pinkyOpen;
-            const isPeace = indexOpen && middleOpen && !ringOpen && !pinkyOpen;
-            const isPointing = indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
-            const isOk = distThumbIndex < 0.05 && middleOpen && ringOpen && pinkyOpen;
-            const isThumbUp = thumbOpen && !indexOpen && !middleOpen && !ringOpen && !pinkyOpen && (landmarks[4].y < landmarks[0].y);
-
-            if (isOk) return "OK Sign";
-            if (isThumbUp) return "Thumb Up";
-            if (isPeace) return "Peace Sign";
-            if (isPointing) return "Pointing Up";
-            if (isPalm) return "Open Palm";
-            if (isFist) return "Closed Fist";
-
-            return "Unknown";
-        }
-
-        // Core On Results
-        function onResults(results) {
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            let detected = "None";
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                
-                // Gambar Skeleton default jika dicentang
-                if (drawSkeleton) {
-                    for (const landmarks of results.multiHandLandmarks) {
-                        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: 'rgba(255,255,255,0.3)', lineWidth: 2});
-                        drawLandmarks(canvasCtx, landmarks, {color: '#fff', lineWidth: 1, radius: 2});
-                    }
-                }
-
-                if (results.multiHandLandmarks.length === 2) {
-                    const hand1 = results.multiHandLandmarks[0];
-                    const hand2 = results.multiHandLandmarks[1];
-
-                    // Eksekusi fungsi garis penghubung 4 jari
-                    drawFourFingerPolygon(canvasCtx, hand1, hand2);
-                    detected = analyzeTwoHandGesture(hand1, hand2);
-                } 
-                else if (results.multiHandLandmarks.length === 1) {
-                    detected = analyzeGesture(results.multiHandLandmarks[0]);
-                }
-
-                const confidence = Math.floor(Math.random() * (98 - 85 + 1) + 85); 
-                updateStatus(detected, `${confidence}%`);
-
-                // Trigger Action Hold
-                if (detected !== "None" && detected !== "Unknown" && detected !== "Custom Shape" && !isCooldown) {
-                    if (detected !== currentGesture) {
-                        currentGesture = detected;
-                        clearTimeout(holdTimer);
-                        holdTimer = setTimeout(() => {
-                            triggerAction(detected);
-                        }, 700);
-                    }
-                } else if (detected === "None" || detected === "Unknown" || detected === "Custom Shape") {
-                    currentGesture = "None";
-                    clearTimeout(holdTimer);
-                }
-
-            } else {
-                updateStatus("None", "0%");
-                currentGesture = "None";
-                clearTimeout(holdTimer);
-            }
-            canvasCtx.restore();
-        }
-
-        // Trigger Voice & Effects
-        function triggerAction(gestureName) {
-            if (isCooldown) return;
-            
-            screenBorder.classList.add('active-glow');
-            statusCard.classList.add('pop');
-            micIcon.classList.add('active');
-            createRipple(window.innerWidth / 2, window.innerHeight - 150);
-
-            let message = "";
-            switch(gestureName) {
-                case "Open Palm": message = "Halo, saya AI Amm, proyek kecerdasan buatan dari Amm AI."; break;
-                case "Pointing Up": message = "Saya hadir untuk membantu dan berinteraksi dengan Anda."; break;
-                case "Peace Sign": message = "Saya masih dalam tahap pengembangan."; break;
-                case "Closed Fist": message = "Ikuti Amm AI untuk informasi terbaru "; break;
-                case "Thumb Up": message = "AI Amm, siap membantu!."; break;
-                case "OK Sign": message = "Terkonfirmasi. Selamat datang!."; break;
-                case "Heart Shape": message = "Bentuk hati terdeteksi. Menyebarkan cinta!"; break;
-                case "Camera Frame": message = "Bingkai kamera terdeteksi. Siap mengambil gambar!"; break;
-                default: message = "Gesture dikenali.";
-            }
-
-            if (isVoiceEnabled && message) speak(message);
-            
-            startCooldown();
-
-            setTimeout(() => {
-                screenBorder.classList.remove('active-glow');
-                statusCard.classList.remove('pop');
-                micIcon.classList.remove('active');
-            }, 500);
-        }
-
-        function speak(text) {
-            if (!synth) {
-                alert("Browser tidak mendukung Web Speech API");
-                return;
-            }
-            if (synth.speaking) synth.cancel();
-            
-            valVoice.innerText = "Speaking...";
-            const utterance = new SpeechSynthesisUtterance(text);
-            if (indonesianVoice) utterance.voice = indonesianVoice;
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            
-            utterance.onend = () => { valVoice.innerText = "Standby"; };
-            synth.speak(utterance);
-        }
-
-        function startCooldown() {
-            isCooldown = true;
-            cooldownBar.style.display = 'block';
-            cooldownProgress.style.transition = 'none';
-            cooldownProgress.style.width = '100%';
-            
-            void cooldownProgress.offsetWidth;
-            
-            cooldownProgress.style.transition = 'width 3s linear';
-            cooldownProgress.style.width = '0%';
-
-            setTimeout(() => {
-                isCooldown = false;
-                cooldownBar.style.display = 'none';
-                currentGesture = "None"; 
-            }, 3000);
-        }
-
-        function updateStatus(gesture, conf) {
-            valGesture.innerText = gesture;
-            valConfidence.innerText = conf;
-        }
-
-        function createRipple(x, y) {
-            const ripple = document.createElement("div");
-            ripple.classList.add("ripple");
-            ripple.style.left = `${x}px`;
-            ripple.style.top = `${y}px`;
-            document.body.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-        }
-
-        async function startDetection() {
-            if (isDetecting) return;
-            isDetecting = true;
-            valCamera.innerText = "Running";
-            valAi.innerText = "Ready";
-            document.getElementById('btnCamStatus').classList.add('active');
-            document.getElementById('btnAiStatus').classList.add('active');
-
-            if(synth.state === "suspended") synth.resume();
-
-            camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await hands.send({image: videoElement});
-                },
-                width: 1280,
-                height: 720,
-                facingMode: facingMode
-            });
-            
-            camera.start().then(() => {
-                canvasElement.width = videoElement.videoWidth;
-                canvasElement.height = videoElement.videoHeight;
-            });
-        }
-
-        function stopDetection() {
-            if (!isDetecting) return;
-            isDetecting = false;
-            if (camera) camera.stop();
-            valCamera.innerText = "Stopped";
-            valAi.innerText = "Offline";
-            document.getElementById('btnCamStatus').classList.remove('active');
-            document.getElementById('btnAiStatus').classList.remove('active');
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        }
-
-        function switchCamera() {
-            stopDetection();
-            facingMode = facingMode === "user" ? "environment" : "user";
-            videoElement.style.transform = facingMode === "user" ? "scaleX(-1)" : "scaleX(1)";
-            canvasElement.style.transform = facingMode === "user" ? "scaleX(-1)" : "scaleX(1)";
-            setTimeout(startDetection, 500);
-        }
-
-        function toggleVoice() {
-            isVoiceEnabled = !isVoiceEnabled;
-            const btn = document.getElementById('btnToggleVoice');
-            const icon = btn.querySelector('span');
-            if(isVoiceEnabled) {
-                icon.innerText = "volume_up";
-                btn.style.color = "var(--silver)";
-                valVoice.innerText = "Standby";
-            } else {
-                icon.innerText = "volume_off";
-                btn.style.color = "red";
-                valVoice.innerText = "Muted";
-            }
-        }
-
-        function resetApp() {
-            stopDetection();
-            valGesture.innerText = "None";
-            valConfidence.innerText = "0%";
-            setTimeout(startDetection, 500);
-        }
-
-        function toggleSettings() {
-            document.getElementById('settingsModal').classList.toggle('show');
-        }
-
-        function toggleAnim() {
-            const scanline = document.getElementById('scanlineEffect');
-            scanline.style.display = document.getElementById('setAnim').checked ? 'block' : 'none';
-        }
-
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => console.log(err));
-            } else {
-                if (document.exitFullscreen) document.exitFullscreen();
-            }
-        }
-
-        document.getElementById('setVoice').addEventListener('change', (e) => {
-            isVoiceEnabled = e.target.checked;
-            toggleVoice(); 
-            toggleVoice(); 
+        // Inisialisasi dan nyalakan kamera
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
         });
-
-        document.getElementById('setSkeleton').addEventListener('change', (e) => {
-            drawSkeleton = e.target.checked;
-        });
-
-        loadVoices();
+        
+        camera.start();
     </script>
 </body>
 </html>
