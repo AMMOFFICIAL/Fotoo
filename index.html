@@ -3,89 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blok Warna Jari Tangan</title>
+    <title>project Amm - Finger Tracking</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
     <style>
+        /* Impor font modern dari Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+
         body {
             margin: 0;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background-color: #1a1a1a;
+            background-color: #000;
+            overflow: hidden; /* Mencegah scrollbar muncul */
             color: white;
-            font-family: sans-serif;
-            height: 100vh;
+            font-family: 'Poppins', sans-serif;
         }
+
+        /* Gaya untuk Judul di Atas */
+        #project-title {
+            position: fixed; /* Tetap di posisi meski di-scroll */
+            top: 20px; /* Jarak dari atas */
+            left: 50%;
+            transform: translateX(-50%); /* Trik untuk center secara horizontal */
+            z-index: 100; /* Pastikan selalu di atas video/canvas */
+            text-align: center;
+            
+            /* Gaya Teks "Rapi & Bagus" */
+            font-size: 32px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.4); /* Background gelap transparan agar terbaca */
+            padding: 10px 30px;
+            border-radius: 50px;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            
+            /* Efek Neon Glow */
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 1);
+            
+            pointer-events: none; /* Agar klik tembus ke bawah jika perlu */
+        }
+
+        /* Container Full Screen */
         .container {
             position: relative;
-            width: 640px;
-            height: 480px;
-            border: 4px solid #fff;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 0 20px rgba(0,255,0,0.5);
+            width: 100vw;
+            height: 100vh;
         }
-        /* Video aslinya disembunyikan, kita tampilkan hasil gambarnya di canvas */
+
+        /* Video disembunyikan */
         .input_video {
             display: none; 
         }
+
+        /* Canvas Full Screen & Mirror */
         .output_canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            transform: scaleX(-1); /* Efek cermin (mirror) agar gerakan lebih natural */
+            object-fit: cover; /* Video/Canvas memenuhi layar tanpa distorsi */
+            transform: scaleX(-1); /* Efek cermin */
         }
-        p {
-            margin-top: 20px;
-            text-align: center;
+
+        /* Loading sederhana sebelum kamera muncul */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: cyan;
         }
     </style>
-
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-    <h2>Detektor 4 Jari (Jempol & Telunjuk)</h2>
+    <div id="project-title">project Amm</div>
+    
+    <div id="loading">Memuat Kamera & AI...</div>
+
     <div class="container">
         <video class="input_video" autoplay playsinline></video>
-        <canvas class="output_canvas" width="640" height="480"></canvas>
+        <canvas class="output_canvas"></canvas>
     </div>
-    <p>Arahkan <strong>kedua tangan Anda</strong> ke kamera. <br>Bentuk blok warna akan mengikuti ujung jempol dan telunjuk dari kedua tangan.</p>
 
     <script>
         const videoElement = document.querySelector('.input_video');
         const canvasElement = document.querySelector('.output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
+        const loadingElement = document.getElementById('loading');
 
-        // Fungsi ini dipanggil setiap kali MediaPipe selesai mendeteksi frame
+        // Fungsi untuk menyesuaikan ukuran internal kanvas dengan ukuran layar (agar tajam)
+        function resizeCanvas() {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Panggil saat awal
+
+        let firstFrame = true;
+
         function onResults(results) {
+            // Sembunyikan loading jika frame pertama sudah didapat
+            if (firstFrame) {
+                loadingElement.style.display = 'none';
+                firstFrame = false;
+            }
+
             canvasCtx.save();
             // Bersihkan kanvas
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            // Gambar tangkapan video ke kanvas
+            
+            // Gambar frame video ke kanvas (Full Layar)
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-            // Jika terdeteksi minimal 2 tangan
+            // Deteksi minimal 2 tangan
             if (results.multiHandLandmarks && results.multiHandLandmarks.length >= 2) {
                 
                 const hand1 = results.multiHandLandmarks[0];
                 const hand2 = results.multiHandLandmarks[1];
 
-                // Titik landmark MediaPipe: 
-                // 4 = Ujung Jempol (Thumb tip)
-                // 8 = Ujung Telunjuk (Index finger tip)
+                // Hitung koordinat berdasarkan ukuran kanvas dinamis
+                const p1 = { x: hand1[4].x * canvasElement.width, y: hand1[4].y * canvasElement.height }; // Jempol 1
+                const p2 = { x: hand1[8].x * canvasElement.width, y: hand1[8].y * canvasElement.height }; // Telunjuk 1
+                const p3 = { x: hand2[8].x * canvasElement.width, y: hand2[8].y * canvasElement.height }; // Telunjuk 2
+                const p4 = { x: hand2[4].x * canvasElement.width, y: hand2[4].y * canvasElement.height }; // Jempol 2
 
-                // Ambil koordinat x dan y (dikalikan dengan lebar & tinggi kanvas)
-                const p1 = { x: hand1[4].x * canvasElement.width, y: hand1[4].y * canvasElement.height }; // Jempol Tangan 1
-                const p2 = { x: hand1[8].x * canvasElement.width, y: hand1[8].y * canvasElement.height }; // Telunjuk Tangan 1
-                const p3 = { x: hand2[8].x * canvasElement.width, y: hand2[8].y * canvasElement.height }; // Telunjuk Tangan 2
-                const p4 = { x: hand2[4].x * canvasElement.width, y: hand2[4].y * canvasElement.height }; // Jempol Tangan 2
-
-                // Mulai menggambar blok warna (Poligon 4 sisi)
+                // Menggambar blok warna poligon
                 canvasCtx.beginPath();
                 canvasCtx.moveTo(p1.x, p1.y);
                 canvasCtx.lineTo(p2.x, p2.y);
@@ -93,13 +143,19 @@
                 canvasCtx.lineTo(p4.x, p4.y);
                 canvasCtx.closePath();
 
-                // Beri warna blok (contoh: Hijau semi-transparan)
-                canvasCtx.fillStyle = 'rgba(0, 255, 128, 0.6)';
+                // Gaya Isi (Sian transparan modern)
+                canvasCtx.fillStyle = 'rgba(0, 255, 255, 0.4)';
                 canvasCtx.fill();
 
-                // Beri garis tepi agar lebih terlihat
-                canvasCtx.lineWidth = 3;
-                canvasCtx.strokeStyle = '#00FF00';
+                // Gaya Garis Tepi (Neon Sian)
+                canvasCtx.lineWidth = 4;
+                canvasCtx.strokeStyle = '#00FFFF';
+                canvasCtx.lineJoin = 'round'; // Agar sudut halus
+                
+                // Efek glow pada garis
+                canvasCtx.shadowBlur = 15;
+                canvasCtx.shadowColor = '#00FFFF';
+                
                 canvasCtx.stroke();
             }
             
@@ -111,22 +167,23 @@
             return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         }});
 
+        // --- OPTIMASI KECEPATAN ---
         hands.setOptions({
-            maxNumHands: 2,           // Batasi hanya mencari 2 tangan
-            modelComplexity: 1,       // Keseimbangan antara kecepatan dan akurasi
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.6
+            maxNumHands: 2,
+            modelComplexity: 0,           // 0 = Cepat (Fast), 1 = Seimbang (Balanced), 2 = Akurat (Heavy). Diubah ke 0.
+            minDetectionConfidence: 0.5, // Sedikit diturunkan agar deteksi awal lebih cepat
+            minTrackingConfidence: 0.5
         });
 
         hands.onResults(onResults);
 
-        // Inisialisasi dan nyalakan kamera
+        // Menggunakan resolusi input yang seimbang agar beban CPU tidak terlalu berat
         const camera = new Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({image: videoElement});
             },
-            width: 640,
-            height: 480
+            width: 1280, // Resolusi kamera yang baik untuk full screen tapi tidak seberat 4K
+            height: 720
         });
         
         camera.start();
