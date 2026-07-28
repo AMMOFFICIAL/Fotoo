@@ -525,31 +525,57 @@
             canvasCtx.restore();
         }
 
-        // Gesture Recognition Heuristics
+        // Tambahkan fungsi pembantu untuk menghitung jarak Euclidean (2D) antar titik
+        function getDistance(lm1, lm2) {
+            return Math.hypot(lm1.x - lm2.x, lm1.y - lm2.y);
+        }
+
+        // Fungsi analisis gesture yang sudah disempurnakan (Berbasis Jarak Relatif)
         function analyzeGesture(landmarks) {
-            // Finger Tips and MCPs (Metacarpophalangeal joints)
-            const isFingerOpen = (tip, pip) => landmarks[tip].y < landmarks[pip].y;
-            
-            // Note: Camera is mirrored, X logic is inverted. Using Y mostly for extension.
-            const indexOpen = isFingerOpen(8, 6);
-            const middleOpen = isFingerOpen(12, 10);
-            const ringOpen = isFingerOpen(16, 14);
-            const pinkyOpen = isFingerOpen(20, 18);
-            
-            // Thumb logic (simplified for 2D plane)
-            const thumbOpen = isFingerOpen(4, 3) || Math.abs(landmarks[4].x - landmarks[17].x) > 0.1;
+            const wrist = landmarks[0]; // Titik acuan pergelangan tangan
 
-            // Distance for OK sign (Thumb tip and Index tip)
-            const distThumbIndex = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+            // Logika Jari Terbuka: Ujung jari (tip) harus lebih jauh dari pergelangan 
+            // dibandingkan dengan pangkal jari (mcp/pip)
+            const isFingerOpen = (tip, mcp) => {
+                return getDistance(landmarks[tip], wrist) > getDistance(landmarks[mcp], wrist);
+            };
 
-            // Logic conditions
-            const isFist = !indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
-            const isPalm = indexOpen && middleOpen && ringOpen && pinkyOpen;
+            // Deteksi jari telunjuk, tengah, manis, dan kelingking (Tip vs MCP)
+            const indexOpen = isFingerOpen(8, 5);
+            const middleOpen = isFingerOpen(12, 9);
+            const ringOpen = isFingerOpen(16, 13);
+            const pinkyOpen = isFingerOpen(20, 17);
+            
+            // Logika Jempol sedikit berbeda karena sumbu rotasinya menyamping.
+            // Kita bandingkan jarak ujung jempol ke pangkal kelingking (17) 
+            // vs jarak pangkal jempol ke pangkal kelingking.
+            const thumbOpen = getDistance(landmarks[4], landmarks[17]) > getDistance(landmarks[2], landmarks[17]);
+
+            // Jarak antara ujung jempol dan ujung telunjuk (Untuk OK Sign)
+            const distThumbIndex = getDistance(landmarks[4], landmarks[8]);
+
+            // --- Heuristik Penentuan Gesture ---
+            
+            // Kepalan tangan: Semua jari dan jempol tertutup
+            const isFist = !thumbOpen && !indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
+            
+            // Telapak tangan terbuka: Semua jari dan jempol terbuka
+            const isPalm = thumbOpen && indexOpen && middleOpen && ringOpen && pinkyOpen;
+            
+            // Peace Sign (V): Telunjuk dan tengah terbuka, sisanya tertutup
             const isPeace = indexOpen && middleOpen && !ringOpen && !pinkyOpen;
+            
+            // Menunjuk (Pointing): Hanya telunjuk yang terbuka
             const isPointing = indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
+            
+            // OK Sign: Telunjuk dan jempol bersentuhan, tiga jari lainnya terbuka
             const isOk = distThumbIndex < 0.05 && middleOpen && ringOpen && pinkyOpen;
-            const isThumbUp = !indexOpen && !middleOpen && !ringOpen && !pinkyOpen && landmarks[4].y < landmarks[3].y;
+            
+            // Thumb Up: Hanya jempol yang terbuka, sisanya tertutup.
+            // Tambahan logika Y untuk memastikan jempol mengarah ke atas relatif terhadap pergelangan
+            const isThumbUp = thumbOpen && !indexOpen && !middleOpen && !ringOpen && !pinkyOpen && (landmarks[4].y < landmarks[0].y);
 
+            // Prioritas pengembalian (return) gesture
             if (isOk) return "OK Sign";
             if (isThumbUp) return "Thumb Up";
             if (isPeace) return "Peace Sign";
@@ -746,7 +772,7 @@
 
         // Initialize Call
         loadVoices();
-        // startDetection(); // Unfmment this line to auto-start upon opening
+        // startDetection(); // Uncomment this line to auto-start upon opening
     </script>
 </body>
 </html>
