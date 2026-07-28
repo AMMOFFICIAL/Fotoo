@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Amm Gesture AI</title>
+    <title>Amm Gesture AI - Dual Hand</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
@@ -19,7 +19,7 @@
             --glass-border: rgba(255, 255, 255, 0.15);
             --text-color: #f0f0f0;
             --accent-glow: 0 0 15px rgba(255, 255, 255, 0.5);
-            --accent-glow-active: 0 0 30px rgba(255, 255, 255, 0.9);
+            --accent-glow-active: 0 0 30px rgba(0, 255, 200, 0.8);
             --silver: #C0C0C0;
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -48,7 +48,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror effect */
+            transform: scaleX(-1);
             z-index: 1;
             transition: var(--transition);
         }
@@ -88,8 +88,8 @@
         }
 
         .screen-border.active-glow {
-            border-color: rgba(255, 255, 255, 0.4);
-            box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.2);
+            border-color: rgba(0, 255, 200, 0.4);
+            box-shadow: inset 0 0 50px rgba(0, 255, 200, 0.2);
         }
 
         /* Glassmorphism Classes */
@@ -175,8 +175,8 @@
 
         .status-card.pop {
             transform: translateX(-50%) scale(1.05);
-            box-shadow: var(--accent-glow);
-            border-color: rgba(255,255,255,0.5);
+            box-shadow: var(--accent-glow-active);
+            border-color: rgba(0,255,200,0.5);
         }
 
         .status-item {
@@ -213,8 +213,8 @@
         .cooldown-progress {
             width: 100%;
             height: 100%;
-            background: #fff;
-            box-shadow: var(--accent-glow);
+            background: #00ffc8;
+            box-shadow: var(--accent-glow-active);
         }
 
         /* Bottom Control Panel */
@@ -311,7 +311,7 @@
             transition: .4s;
             border-radius: 50%;
         }
-        input:checked + .slider { background-color: #fff; }
+        input:checked + .slider { background-color: #00ffc8; }
         input:checked + .slider:before {
             transform: translateX(20px);
             background-color: #000;
@@ -331,11 +331,10 @@
             100% { opacity: 1; }
         }
 
-        /* Ripple Effect */
         .ripple {
             position: absolute;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.4);
+            background: rgba(0, 255, 200, 0.4);
             transform: scale(0);
             animation: ripple-anim 0.6s linear;
             pointer-events: none;
@@ -343,15 +342,6 @@
 
         @keyframes ripple-anim {
             to { transform: scale(4); opacity: 0; }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .top-nav { padding: 0 15px; height: 60px; }
-            .logo { font-size: 1rem; }
-            .status-card { width: 90%; bottom: 100px; }
-            .bottom-panel { width: 90%; justify-content: space-around; padding: 10px; }
-            .ctrl-btn { width: 45px; height: 45px; }
         }
     </style>
 </head>
@@ -431,14 +421,12 @@
     </div>
 
     <script>
-        // DOM Elements
         const videoElement = document.getElementById('webcam');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         const statusCard = document.getElementById('statusCard');
         const screenBorder = document.getElementById('screenBorder');
         
-        // Status Elements
         const valCamera = document.getElementById('valCamera');
         const valAi = document.getElementById('valAi');
         const valGesture = document.getElementById('valGesture');
@@ -448,7 +436,6 @@
         const cooldownProgress = document.getElementById('cooldownProgress');
         const micIcon = document.getElementById('btnMicStatus');
 
-        // State Variables
         let isDetecting = false;
         let isVoiceEnabled = true;
         let drawSkeleton = false;
@@ -456,9 +443,8 @@
         let currentGesture = "None";
         let isCooldown = false;
         let camera;
-        let facingMode = "user"; // Front camera default
+        let facingMode = "user";
 
-        // Speech Synthesis Setup
         const synth = window.speechSynthesis;
         let indonesianVoice = null;
 
@@ -469,13 +455,13 @@
         }
         speechSynthesis.onvoiceschanged = loadVoices;
 
-        // Initialize MediaPipe Hands
+        // BACA 2 TANGAN MAX
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
         hands.setOptions({
-            maxNumHands: 1,
+            maxNumHands: 2, // Diubah ke 2 tangan
             modelComplexity: 1,
             minDetectionConfidence: 0.8,
             minTrackingConfidence: 0.8
@@ -483,99 +469,87 @@
 
         hands.onResults(onResults);
 
-        // Core Detection Logic
-        function onResults(results) {
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                
-                if (drawSkeleton) {
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: 'rgba(255,255,255,0.5)', lineWidth: 2});
-                    drawLandmarks(canvasCtx, landmarks, {color: '#fff', lineWidth: 1, radius: 2});
-                }
-
-                // Analyze Gesture
-                const detected = analyzeGesture(landmarks);
-                
-                // Simulated Confidence based on MediaPipe robust tracking (min 80%)
-                const confidence = Math.floor(Math.random() * (98 - 85 + 1) + 85); 
-
-                updateStatus(detected, `${confidence}%`);
-
-                // Logic 700ms Hold
-                if (detected !== "None" && detected !== "Unknown" && !isCooldown) {
-                    if (detected !== currentGesture) {
-                        currentGesture = detected;
-                        clearTimeout(holdTimer);
-                        holdTimer = setTimeout(() => {
-                            triggerAction(detected);
-                        }, 700);
-                    }
-                } else if (detected === "None" || detected === "Unknown") {
-                    currentGesture = "None";
-                    clearTimeout(holdTimer);
-                }
-            } else {
-                updateStatus("None", "0%");
-                currentGesture = "None";
-                clearTimeout(holdTimer);
-            }
-            canvasCtx.restore();
-        }
-
-        // Tambahkan fungsi pembantu untuk menghitung jarak Euclidean (2D) antar titik
+        // Helper Jarak
         function getDistance(lm1, lm2) {
             return Math.hypot(lm1.x - lm2.x, lm1.y - lm2.y);
         }
 
-        // Fungsi analisis gesture yang sudah disempurnakan (Berbasis Jarak Relatif)
+        // Gambar pola bidang 4 jari (Telunjuk - Telunjuk - Jempol - Jempol)
+        function drawFourFingerPolygon(ctx, hand1, hand2) {
+            // Titik Landmark 8 (Telunjuk) dan 4 (Jempol)
+            const pts = [
+                {x: hand1[8].x * canvasElement.width, y: hand1[8].y * canvasElement.height},
+                {x: hand2[8].x * canvasElement.width, y: hand2[8].y * canvasElement.height},
+                {x: hand2[4].x * canvasElement.width, y: hand2[4].y * canvasElement.height},
+                {x: hand1[4].x * canvasElement.width, y: hand1[4].y * canvasElement.height}
+            ];
+
+            // Garis Bentuk
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for(let i = 1; i < pts.length; i++) {
+                ctx.lineTo(pts[i].x, pts[i].y);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = 'rgba(0, 255, 200, 0.15)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 255, 200, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Efek Titik Glow di Ujung Jari
+            pts.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#fff';
+                ctx.shadowColor = '#00ffc8';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0; // Reset
+        }
+
+        // Logika 2 Tangan
+        function analyzeTwoHandGesture(h1, h2) {
+            const distT1T2 = getDistance(h1[4], h2[4]); // Jempol ke Jempol
+            const distI1I2 = getDistance(h1[8], h2[8]); // Telunjuk ke Telunjuk
+            
+            // Silang untuk Frame Kamera
+            const distT1I2 = getDistance(h1[4], h2[8]); // Jempol 1 ke Telunjuk 2
+            const distI1T2 = getDistance(h1[8], h2[4]); // Telunjuk 1 ke Jempol 2
+
+            const threshold = 0.08; // Jarak kedekatan untuk dianggap "bersentuhan"
+
+            if (distT1T2 < threshold && distI1I2 < threshold) {
+                return "Heart Shape";
+            }
+            if (distT1I2 < threshold && distI1T2 < threshold) {
+                return "Camera Frame";
+            }
+
+            return "Custom Shape";
+        }
+
+        // Logika 1 Tangan (Jarak Relatif - Kode Lama Dipertahankan)
         function analyzeGesture(landmarks) {
-            const wrist = landmarks[0]; // Titik acuan pergelangan tangan
+            const wrist = landmarks[0];
+            const isFingerOpen = (tip, mcp) => getDistance(landmarks[tip], wrist) > getDistance(landmarks[mcp], wrist);
 
-            // Logika Jari Terbuka: Ujung jari (tip) harus lebih jauh dari pergelangan 
-            // dibandingkan dengan pangkal jari (mcp/pip)
-            const isFingerOpen = (tip, mcp) => {
-                return getDistance(landmarks[tip], wrist) > getDistance(landmarks[mcp], wrist);
-            };
-
-            // Deteksi jari telunjuk, tengah, manis, dan kelingking (Tip vs MCP)
             const indexOpen = isFingerOpen(8, 5);
             const middleOpen = isFingerOpen(12, 9);
             const ringOpen = isFingerOpen(16, 13);
             const pinkyOpen = isFingerOpen(20, 17);
-            
-            // Logika Jempol sedikit berbeda karena sumbu rotasinya menyamping.
-            // Kita bandingkan jarak ujung jempol ke pangkal kelingking (17) 
-            // vs jarak pangkal jempol ke pangkal kelingking.
             const thumbOpen = getDistance(landmarks[4], landmarks[17]) > getDistance(landmarks[2], landmarks[17]);
-
-            // Jarak antara ujung jempol dan ujung telunjuk (Untuk OK Sign)
             const distThumbIndex = getDistance(landmarks[4], landmarks[8]);
 
-            // --- Heuristik Penentuan Gesture ---
-            
-            // Kepalan tangan: Semua jari dan jempol tertutup
             const isFist = !thumbOpen && !indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
-            
-            // Telapak tangan terbuka: Semua jari dan jempol terbuka
             const isPalm = thumbOpen && indexOpen && middleOpen && ringOpen && pinkyOpen;
-            
-            // Peace Sign (V): Telunjuk dan tengah terbuka, sisanya tertutup
             const isPeace = indexOpen && middleOpen && !ringOpen && !pinkyOpen;
-            
-            // Menunjuk (Pointing): Hanya telunjuk yang terbuka
             const isPointing = indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
-            
-            // OK Sign: Telunjuk dan jempol bersentuhan, tiga jari lainnya terbuka
             const isOk = distThumbIndex < 0.05 && middleOpen && ringOpen && pinkyOpen;
-            
-            // Thumb Up: Hanya jempol yang terbuka, sisanya tertutup.
-            // Tambahan logika Y untuk memastikan jempol mengarah ke atas relatif terhadap pergelangan
             const isThumbUp = thumbOpen && !indexOpen && !middleOpen && !ringOpen && !pinkyOpen && (landmarks[4].y < landmarks[0].y);
 
-            // Prioritas pengembalian (return) gesture
             if (isOk) return "OK Sign";
             if (isThumbUp) return "Thumb Up";
             if (isPeace) return "Peace Sign";
@@ -586,11 +560,63 @@
             return "Unknown";
         }
 
+        // Core On Results
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            let detected = "None";
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                
+                // Gambar Skeleton default jika dicentang
+                if (drawSkeleton) {
+                    for (const landmarks of results.multiHandLandmarks) {
+                        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: 'rgba(255,255,255,0.3)', lineWidth: 2});
+                        drawLandmarks(canvasCtx, landmarks, {color: '#fff', lineWidth: 1, radius: 2});
+                    }
+                }
+
+                if (results.multiHandLandmarks.length === 2) {
+                    const hand1 = results.multiHandLandmarks[0];
+                    const hand2 = results.multiHandLandmarks[1];
+
+                    // Eksekusi fungsi garis penghubung 4 jari
+                    drawFourFingerPolygon(canvasCtx, hand1, hand2);
+                    detected = analyzeTwoHandGesture(hand1, hand2);
+                } 
+                else if (results.multiHandLandmarks.length === 1) {
+                    detected = analyzeGesture(results.multiHandLandmarks[0]);
+                }
+
+                const confidence = Math.floor(Math.random() * (98 - 85 + 1) + 85); 
+                updateStatus(detected, `${confidence}%`);
+
+                // Trigger Action Hold
+                if (detected !== "None" && detected !== "Unknown" && detected !== "Custom Shape" && !isCooldown) {
+                    if (detected !== currentGesture) {
+                        currentGesture = detected;
+                        clearTimeout(holdTimer);
+                        holdTimer = setTimeout(() => {
+                            triggerAction(detected);
+                        }, 700);
+                    }
+                } else if (detected === "None" || detected === "Unknown" || detected === "Custom Shape") {
+                    currentGesture = "None";
+                    clearTimeout(holdTimer);
+                }
+
+            } else {
+                updateStatus("None", "0%");
+                currentGesture = "None";
+                clearTimeout(holdTimer);
+            }
+            canvasCtx.restore();
+        }
+
         // Trigger Voice & Effects
         function triggerAction(gestureName) {
             if (isCooldown) return;
             
-            // Visual Effects
             screenBorder.classList.add('active-glow');
             statusCard.classList.add('pop');
             micIcon.classList.add('active');
@@ -604,12 +630,13 @@
                 case "Closed Fist": message = "Ikuti Amm AI untuk informasi terbaru "; break;
                 case "Thumb Up": message = "AI Amm, siap membantu!."; break;
                 case "OK Sign": message = "Terkonfirmasi. Selamat datang!."; break;
+                case "Heart Shape": message = "Bentuk hati terdeteksi. Menyebarkan cinta!"; break;
+                case "Camera Frame": message = "Bingkai kamera terdeteksi. Siap mengambil gambar!"; break;
                 default: message = "Gesture dikenali.";
             }
 
-            if (isVoiceEnabled) speak(message);
+            if (isVoiceEnabled && message) speak(message);
             
-            // Start Cooldown (3 seconds)
             startCooldown();
 
             setTimeout(() => {
@@ -619,7 +646,6 @@
             }, 500);
         }
 
-        // Text to Speech
         function speak(text) {
             if (!synth) {
                 alert("Browser tidak mendukung Web Speech API");
@@ -637,14 +663,12 @@
             synth.speak(utterance);
         }
 
-        // Cooldown Mechanism
         function startCooldown() {
             isCooldown = true;
             cooldownBar.style.display = 'block';
             cooldownProgress.style.transition = 'none';
             cooldownProgress.style.width = '100%';
             
-            // Force reflow
             void cooldownProgress.offsetWidth;
             
             cooldownProgress.style.transition = 'width 3s linear';
@@ -653,11 +677,10 @@
             setTimeout(() => {
                 isCooldown = false;
                 cooldownBar.style.display = 'none';
-                currentGesture = "None"; // Reset memory
+                currentGesture = "None"; 
             }, 3000);
         }
 
-        // UI Updates
         function updateStatus(gesture, conf) {
             valGesture.innerText = gesture;
             valConfidence.innerText = conf;
@@ -672,7 +695,6 @@
             setTimeout(() => ripple.remove(), 600);
         }
 
-        // Controls
         async function startDetection() {
             if (isDetecting) return;
             isDetecting = true;
@@ -681,7 +703,6 @@
             document.getElementById('btnCamStatus').classList.add('active');
             document.getElementById('btnAiStatus').classList.add('active');
 
-            // Force unlock audio context on some browsers
             if(synth.state === "suspended") synth.resume();
 
             camera = new Camera(videoElement, {
@@ -694,7 +715,6 @@
             });
             
             camera.start().then(() => {
-                // Resize canvas to match video
                 canvasElement.width = videoElement.videoWidth;
                 canvasElement.height = videoElement.videoHeight;
             });
@@ -741,7 +761,6 @@
             setTimeout(startDetection, 500);
         }
 
-        // Settings & Utils
         function toggleSettings() {
             document.getElementById('settingsModal').classList.toggle('show');
         }
@@ -759,20 +778,17 @@
             }
         }
 
-        // Settings Event Listeners
         document.getElementById('setVoice').addEventListener('change', (e) => {
             isVoiceEnabled = e.target.checked;
-            toggleVoice(); // Sync UI
-            toggleVoice(); // Revert toggle state overlap
+            toggleVoice(); 
+            toggleVoice(); 
         });
 
         document.getElementById('setSkeleton').addEventListener('change', (e) => {
             drawSkeleton = e.target.checked;
         });
 
-        // Initialize Call
         loadVoices();
-        // startDetection(); // Uncomment this line to auto-start upon opening
     </script>
 </body>
 </html>
